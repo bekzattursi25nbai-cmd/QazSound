@@ -4,6 +4,11 @@ import importlib.util
 
 from dotenv import load_dotenv
 
+try:
+    import dj_database_url
+except ImportError:  # pragma: no cover - optional for local bootstrap before pip install
+    dj_database_url = None
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -35,6 +40,15 @@ def _env_int(name: str, default: int) -> int:
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-dev-secret-key")
 DEBUG = _env_bool("DEBUG", default=True)
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
+RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()]
+if RENDER_EXTERNAL_HOSTNAME:
+    render_origin = f"https://{RENDER_EXTERNAL_HOSTNAME}"
+    if render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_origin)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -53,6 +67,7 @@ if importlib.util.find_spec("jazzmin") is not None:
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -93,6 +108,14 @@ DATABASES = {
     }
 }
 
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and dj_database_url is not None:
+    DATABASES["default"] = dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=_env_int("DB_CONN_MAX_AGE", default=600),
+        ssl_require=not DEBUG,
+    )
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -112,12 +135,27 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = (
+    "django.contrib.staticfiles.storage.StaticFilesStorage"
+    if DEBUG
+    else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+)
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": STATICFILES_STORAGE},
+}
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 ENABLE_YTDLP_YOUTUBE_IMPORT = DEBUG and _env_bool("ENABLE_YTDLP_YOUTUBE_IMPORT", default=True)
 YTDLP_IMPORT_AUDIO_DIR = BASE_DIR / os.getenv("YTDLP_IMPORT_AUDIO_DIR", "media/audio")
 YTDLP_MAX_FILENAME_LENGTH = _env_int("YTDLP_MAX_FILENAME_LENGTH", default=120)
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = _env_bool("SECURE_SSL_REDIRECT", default=not DEBUG)
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", default=not DEBUG)
 
 LOGIN_URL = "users:login"
 LOGIN_REDIRECT_URL = "tracks:home"
