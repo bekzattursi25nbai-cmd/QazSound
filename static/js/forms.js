@@ -30,6 +30,7 @@
     const urlInput = form.querySelector('input[name="youtube_url"]');
     const titleField = form.querySelector('input[name="title"]');
     const artistField = form.querySelector('input[name="artist_name"]');
+    const durationField = form.querySelector('input[name="duration_seconds"]');
     const coverUrlField = form.querySelector('input[name="external_cover_url"]');
 
     if (!endpoint || !urlInput) return;
@@ -62,6 +63,9 @@
       }
       if (coverUrlField && !coverUrlField.value.trim() && data.thumbnail_url) {
         coverUrlField.value = data.thumbnail_url;
+      }
+      if (durationField && !durationField.value.trim() && Number.isFinite(Number(data.duration_seconds))) {
+        durationField.value = String(Math.max(0, Number(data.duration_seconds)));
       }
       if (urlInput && data.normalized_url) {
         urlInput.value = data.normalized_url;

@@ -179,6 +179,9 @@ class TrackForm(forms.ModelForm):
                 if not external_cover_url and metadata.get("thumbnail_url"):
                     cleaned_data["external_cover_url"] = metadata["thumbnail_url"].strip()
 
+                if not cleaned_data.get("duration_seconds") and metadata.get("duration_seconds"):
+                    cleaned_data["duration_seconds"] = metadata["duration_seconds"]
+
             if not cleaned_data.get("title", "").strip():
                 self.add_error("title", "Title is required (or use Fetch metadata).")
 
@@ -189,4 +192,3 @@ class TrackForm(forms.ModelForm):
             self.add_error("source_type", "Unsupported source type.")
 
         return cleaned_data
-

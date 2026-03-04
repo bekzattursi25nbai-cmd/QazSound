@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET
 
 from apps.interactions.selectors import get_liked_track_ids
 
@@ -18,6 +19,7 @@ from .services import (
     TrackProcessingError,
     create_track,
     delete_track,
+    fetch_youtube_stream,
     fetch_youtube_metadata,
     is_valid_youtube_url,
     update_track,
@@ -191,7 +193,40 @@ def youtube_metadata_preview(request):
             "title": metadata.get("title", ""),
             "author_name": metadata.get("author_name", ""),
             "thumbnail_url": metadata.get("thumbnail_url", ""),
+            "duration_seconds": metadata.get("duration_seconds"),
             "normalized_url": metadata.get("normalized_url", youtube_url),
             "embed_url": metadata.get("embed_url", ""),
         }
     )
+
+
+@require_GET
+def youtube_audio_stream(request, track_id: int):
+    try:
+        track = get_track_by_id(track_id)
+    except Track.DoesNotExist as exc:
+        raise Http404("Track not found") from exc
+
+    if track.source_type != Track.SourceType.YOUTUBE or not track.youtube_url:
+        return JsonResponse({"detail": "This track does not have a YouTube source."}, status=400)
+
+    stream_data = fetch_youtube_stream(track.youtube_url)
+    stream_url = (stream_data.get("audio_url") or "").strip()
+    if not stream_url:
+        return JsonResponse({"detail": "Could not resolve YouTube audio stream URL."}, status=502)
+
+    wants_json = request.GET.get("json") == "1" or "application/json" in request.headers.get("Accept", "")
+    if wants_json:
+        return JsonResponse(
+            {
+                "audio_url": stream_url,
+                "format_id": stream_data.get("format_id", ""),
+                "ext": stream_data.get("ext", ""),
+                "acodec": stream_data.get("acodec", ""),
+                "title": stream_data.get("title", ""),
+                "duration_seconds": stream_data.get("duration_seconds"),
+                "thumbnail_url": stream_data.get("thumbnail_url", ""),
+            }
+        )
+
+    return redirect(stream_url)

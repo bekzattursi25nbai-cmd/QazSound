@@ -39,7 +39,7 @@
         <button type="button" class="btn btn-secondary btn-sm js-youtube-fetch">Fetch metadata</button>
       </div>
       <small class="muted js-youtube-status">
-        Paste a YouTube link. On publish, system will import it and save as MP3 file automatically.
+        Paste a YouTube link. On publish, metadata is saved and audio is streamed on demand (no server-side file download).
       </small>
       {% if form.youtube_url.errors %}<div class="field-error">{{ form.youtube_url.errors }}</div>{% endif %}
     </div>

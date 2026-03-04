@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import URLValidator
 from django.db import models
+from django.urls import reverse
 from django.template.defaultfilters import slugify
 
 from .utils import extract_youtube_id
@@ -97,6 +98,8 @@ class Track(models.Model):
     def audio_url(self) -> str:
         if self.audio_file:
             return self.audio_file.url
+        if self.is_youtube() and self.pk and (self.youtube_url or self.youtube_id):
+            return reverse("tracks:youtube_audio_stream", args=[self.pk])
         return ""
 
     def embed_url(self) -> str:
